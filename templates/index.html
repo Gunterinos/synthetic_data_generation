@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Data Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 400;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .chart-container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-container.wide {
+            flex-basis: 100%;
+            max-width: 900px;
+        }
+        
+        .chart-title {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        label {
+            font-weight: 500;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        select {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        select:hover {
+            border-color: #999;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #666;
+        }
+        
+        .scatter-point {
+            cursor: pointer;
+        }
+        
+        .scatter-point:hover {
+            stroke: #333;
+            stroke-width: 2px;
+        }
+        
+        .axis-label {
+            font-size: 12px;
+            fill: #666;
+        }
+        
+        .bar-label {
+            font-size: 11px;
+            fill: #333;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+        }
+        
+        .detail-info {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #999;
+            min-height: 18px;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #666;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        
+        .grid line {
+            stroke: #eee;
+        }
+        
+        .axis path,
+        .axis line {
+            stroke: #ccc;
+        }
+        
+        .axis text {
+            fill: #666;
+            font-size: 11px;
+        }
+        
+        .pc-line {
+            fill: none;
+            stroke-width: 1.5;
+            opacity: 0.4;
+        }
+        
+        .pc-line:hover {
+            stroke-width: 3;
+            opacity: 1;
+        }
+        
+        .pc-line.highlighted {
+            stroke-width: 3;
+            opacity: 1;
+        }
+        
+        .pc-axis-label {
+            font-size: 11px;
+            fill: #666;
+            text-anchor: middle;
+        }
+        
+        .splom-cell {
+            stroke: #eee;
+            fill: #fafafa;
+        }
+        
+        .splom-point {
+            fill: #5b8def;
+            opacity: 0.4;
+            cursor: pointer;
+        }
+        
+        .splom-point:hover {
+            opacity: 1;
+            r: 4;
+        }
+        
+        .splom-point.highlighted {
+            fill: #e74c3c;
+            opacity: 1;
+        }
+        
+        .splom-label {
+            font-size: 10px;
+            fill: #666;
+            text-anchor: middle;
+        }
+        
+        .radar-axis {
+            stroke: #ddd;
+        }
+        
+        .radar-grid {
+            fill: none;
+            stroke: #eee;
+        }
+        
+        .radar-area {
+            fill-opacity: 0;
+            stroke-width: 2;
+        }
+        
+        .radar-line {
+            transition: stroke-opacity 0.15s, stroke-width 0.15s;
+        }
+        
+        .radar-point {
+            stroke: #fff;
+            stroke-width: 1;
+        }
+        
+        .radar-label {
+            font-size: 11px;
+            fill: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Portfolio Data Explorer</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="xAxis">X Axis:</label>
+            <select id="xAxis"></select>
+        </div>
+        <div class="control-group">
+            <label for="yAxis">Y Axis:</label>
+            <select id="yAxis"></select>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="chart-container">
+            <div class="chart-title">Scatter Plot</div>
+            <div id="scatter-plot"></div>
+            <div class="detail-info" id="scatter-info">Hover over a point to see details</div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title" id="bar-title">Decision Variables</div>
+            <div id="bar-chart"></div>
+            <div class="legend" id="bar-legend"></div>
+            <div class="detail-info" id="bar-info">Hover over a scatter point to see breakdown</div>
+        </div>
+    </div>
+    
+    <div class="container" style="margin-top: 20px;">
+        <div class="chart-container wide">
+            <div class="chart-title" id="pc-title">Parallel Coordinates</div>
+            <div id="parallel-plot"></div>
+            <div class="detail-info" id="pc-info">Hover over a line to highlight</div>
+        </div>
+    </div>
+    
+    <div class="container" style="margin-top: 20px;">
+        <div class="chart-container">
+            <div class="chart-title" id="splom-title">Objectives SPLOM</div>
+            <div id="splom-plot"></div>
+            <div class="detail-info" id="splom-info">Scatter Plot Matrix of Objectives</div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title" id="radar-title">Objectives Radar</div>
+            <div id="radar-plot"></div>
+            <div class="detail-info" id="radar-info">Hover over scatter points to see radar</div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        // Chart dimensions
+        const scatterWidth = 450;
+        const scatterHeight = 400;
+        const barWidth = 350;
+        const barHeight = 400;
+        const pcWidth = 860;
+        const pcHeight = 300;
+        const splomSize = 400;
+        const radarSize = 400;
+        const margin = { top: 30, right: 20, bottom: 50, left: 50 };
+        const pcMargin = { top: 40, right: 30, bottom: 30, left: 30 };
+        const splomMargin = { top: 20, right: 20, bottom: 30, left: 30 };
+        
+        // Global data and column info
+        let portfolioData = [];
+        let columnGroups = {};
+        let allColumns = [];
+        let decColumns = [];
+        let objColumns = [];
+        let auxColumns = [];
+        let scatterColumns = [];
+        let pcColumns = [];
+        
+        // Dynamic color palette
+        const colorPalette = [
+            '#5b8def', '#43c59e', '#f5a623', '#e74c3c', '#9b59b6', 
+            '#1abc9c', '#3498db', '#e67e22', '#2ecc71', '#f39c12'
+        ];
+        
+        // Create SVG elements
+        const scatterSvg = d3.select('#scatter-plot')
+            .append('svg')
+            .attr('width', scatterWidth)
+            .attr('height', scatterHeight);
+        
+        const barSvg = d3.select('#bar-chart')
+            .append('svg')
+            .attr('width', barWidth)
+            .attr('height', barHeight);
+        
+        const pcSvg = d3.select('#parallel-plot')
+            .append('svg')
+            .attr('width', pcWidth)
+            .attr('height', pcHeight);
+        
+        const splomSvg = d3.select('#splom-plot')
+            .append('svg')
+            .attr('width', splomSize)
+            .attr('height', splomSize);
+        
+        const radarSvg = d3.select('#radar-plot')
+            .append('svg')
+            .attr('width', radarSize)
+            .attr('height', radarSize);
+        
+        const tooltip = d3.select('#tooltip');
+        
+        // Color scale for lines
+        const colorScale = d3.scaleSequential(d3.interpolateViridis);
+        
+        // Load column metadata first, then data
+        Promise.all([
+            d3.json('/api/columns'),
+            d3.json('/api/data')
+        ]).then(([columnsInfo, data]) => {
+            allColumns = columnsInfo.all;
+            columnGroups = columnsInfo.groups;
+            portfolioData = data;
+            
+            // Assign column groups
+            decColumns = columnGroups.dec || [];
+            objColumns = columnGroups.obj || [];
+            auxColumns = columnGroups.aux || [];
+            
+            // Scatter plot uses obj and aux columns
+            scatterColumns = [...objColumns, ...auxColumns];
+            
+            // PCP uses obj and aux columns
+            pcColumns = [...objColumns, ...auxColumns];
+            
+            // Initialize UI
+            initializeControls();
+            initializeLegend();
+            updateScatterPlot();
+            drawStackedBarChart();
+            drawParallelCoordinates();
+            drawSPLOM();
+            drawRadarChart();
+        });
+        
+        function initializeControls() {
+            const xSelect = d3.select('#xAxis');
+            const ySelect = d3.select('#yAxis');
+            
+            // Populate X axis dropdown
+            xSelect.selectAll('option')
+                .data(scatterColumns)
+                .enter()
+                .append('option')
+                .attr('value', d => d)
+                .text(d => d);
+            
+            // Populate Y axis dropdown
+            ySelect.selectAll('option')
+                .data(scatterColumns)
+                .enter()
+                .append('option')
+                .attr('value', d => d)
+                .attr('selected', (d, i) => i === 1 ? true : null)
+                .text(d => d);
+            
+            // Set default selections
+            if (scatterColumns.length > 0) {
+                xSelect.property('value', scatterColumns[0]);
+            }
+            if (scatterColumns.length > 1) {
+                ySelect.property('value', scatterColumns[1]);
+            }
+            
+            // Event listeners
+            xSelect.on('change', updateScatterPlot);
+            ySelect.on('change', updateScatterPlot);
+            
+            // Update titles
+            d3.select('#bar-title').text(`Decision Variables (${decColumns.length} columns)`);
+            d3.select('#pc-title').text(`Parallel Coordinates (${pcColumns.join(', ')})`);
+        }
+        
+        function initializeLegend() {
+            const legend = d3.select('#bar-legend');
+            legend.selectAll('*').remove();
+            
+            decColumns.forEach((col, i) => {
+                const item = legend.append('div').attr('class', 'legend-item');
+                item.append('div')
+                    .attr('class', 'legend-color')
+                    .style('background', colorPalette[i % colorPalette.length]);
+                item.append('span').text(col);
+            });
+        }
+        
+        function getDecColor(col) {
+            const idx = decColumns.indexOf(col);
+            return colorPalette[idx % colorPalette.length];
+        }
+        
+        function updateScatterPlot() {
+            const xKey = d3.select('#xAxis').property('value');
+            const yKey = d3.select('#yAxis').property('value');
+            
+            if (!xKey || !yKey) return;
+            
+            // Clear previous plot
+            scatterSvg.selectAll('*').remove();
+            
+            // Create scales
+            const xExtent = d3.extent(portfolioData, d => d[xKey]);
+            const yExtent = d3.extent(portfolioData, d => d[yKey]);
+            
+            const xPadding = (xExtent[1] - xExtent[0]) * 0.05 || 0.1;
+            const yPadding = (yExtent[1] - yExtent[0]) * 0.05 || 0.1;
+            
+            const xScale = d3.scaleLinear()
+                .domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+                .range([margin.left, scatterWidth - margin.right]);
+            
+            const yScale = d3.scaleLinear()
+                .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+                .range([scatterHeight - margin.bottom, margin.top]);
+            
+            // Add grid
+            scatterSvg.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0, ${scatterHeight - margin.bottom})`)
+                .call(d3.axisBottom(xScale)
+                    .tickSize(-(scatterHeight - margin.top - margin.bottom))
+                    .tickFormat('')
+                );
+            
+            scatterSvg.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(yScale)
+                    .tickSize(-(scatterWidth - margin.left - margin.right))
+                    .tickFormat('')
+                );
+            
+            // Add axes
+            scatterSvg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0, ${scatterHeight - margin.bottom})`)
+                .call(d3.axisBottom(xScale).ticks(6));
+            
+            scatterSvg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(yScale).ticks(6));
+            
+            // Add axis labels
+            scatterSvg.append('text')
+                .attr('class', 'axis-label')
+                .attr('x', scatterWidth / 2)
+                .attr('y', scatterHeight - 8)
+                .attr('text-anchor', 'middle')
+                .text(xKey);
+            
+            scatterSvg.append('text')
+                .attr('class', 'axis-label')
+                .attr('x', -scatterHeight / 2)
+                .attr('y', 14)
+                .attr('text-anchor', 'middle')
+                .attr('transform', 'rotate(-90)')
+                .text(yKey);
+            
+            // Draw points
+            scatterSvg.selectAll('.scatter-point')
+                .data(portfolioData)
+                .enter()
+                .append('circle')
+                .attr('class', 'scatter-point')
+                .attr('cx', d => xScale(d[xKey]))
+                .attr('cy', d => yScale(d[yKey]))
+                .attr('r', 6)
+                .attr('fill', '#5b8def')
+                .attr('opacity', 0.7)
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('r', 9)
+                        .attr('opacity', 1);
+                    
+                    tooltip.classed('visible', true)
+                        .html(`
+                            <strong>Point ${d.id}</strong><br>
+                            ${xKey}: ${d[xKey].toFixed(4)}<br>
+                            ${yKey}: ${d[yKey].toFixed(4)}
+                        `)
+                        .style('left', (event.pageX + 12) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                    
+                    updateBarChartDetail(d);
+                    highlightParallelLine(d.id);
+                    highlightSPLOMPoints(d.id);
+                    drawRadarChart(d);
+                    
+                    d3.select('#scatter-info').text(`Point ${d.id}`);
+                })
+                .on('mousemove', function(event) {
+                    tooltip
+                        .style('left', (event.pageX + 12) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('r', 6)
+                        .attr('opacity', 0.7);
+                    
+                    tooltip.classed('visible', false);
+                    drawStackedBarChart();
+                    resetParallelHighlight();
+                    resetSPLOMHighlight();
+                    drawRadarChart();
+                    
+                    d3.select('#scatter-info').text('Hover over a point to see details');
+                    d3.select('#bar-info').text('Hover over a scatter point to see breakdown');
+                });
+        }
+        
+        function drawStackedBarChart() {
+            barSvg.selectAll('*').remove();
+            
+            if (decColumns.length === 0) return;
+            
+            const stackedData = d3.stack().keys(decColumns)(portfolioData);
+            
+            const xScale = d3.scaleBand()
+                .domain(portfolioData.map((d, i) => i))
+                .range([margin.left, barWidth - margin.right])
+                .padding(0.1);
+            
+            const yScale = d3.scaleLinear()
+                .domain([0, 1.1])
+                .range([barHeight - margin.bottom, margin.top]);
+            
+            barSvg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0, ${barHeight - margin.bottom})`)
+                .call(d3.axisBottom(xScale).tickValues([]));
+            
+            barSvg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(yScale).ticks(5));
+            
+            barSvg.append('text')
+                .attr('class', 'axis-label')
+                .attr('x', barWidth / 2)
+                .attr('y', barHeight - 8)
+                .attr('text-anchor', 'middle')
+                .text('Data Points');
+            
+            barSvg.selectAll('.layer')
+                .data(stackedData)
+                .enter()
+                .append('g')
+                .attr('class', 'layer')
+                .attr('fill', d => getDecColor(d.key))
+                .selectAll('rect')
+                .data(d => d)
+                .enter()
+                .append('rect')
+                .attr('x', (d, i) => xScale(i))
+                .attr('y', d => yScale(d[1]))
+                .attr('height', d => yScale(d[0]) - yScale(d[1]))
+                .attr('width', xScale.bandwidth())
+                .attr('opacity', 0.8);
+        }
+        
+        function updateBarChartDetail(point) {
+            barSvg.selectAll('*').remove();
+            
+            if (decColumns.length === 0) return;
+            
+            const decData = decColumns.map(key => ({
+                key: key,
+                value: point[key]
+            }));
+            
+            const xScale = d3.scaleBand()
+                .domain(decColumns)
+                .range([margin.left, barWidth - margin.right])
+                .padding(0.25);
+            
+            const yScale = d3.scaleLinear()
+                .domain([0, 1])
+                .range([barHeight - margin.bottom, margin.top]);
+            
+            // Add grid
+            barSvg.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(yScale)
+                    .tickSize(-(barWidth - margin.left - margin.right))
+                    .tickFormat('')
+                );
+            
+            barSvg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0, ${barHeight - margin.bottom})`)
+                .call(d3.axisBottom(xScale));
+            
+            barSvg.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(yScale).ticks(5));
+            
+            // Draw bars
+            barSvg.selectAll('.bar')
+                .data(decData)
+                .enter()
+                .append('rect')
+                .attr('class', 'bar')
+                .attr('x', d => xScale(d.key))
+                .attr('y', barHeight - margin.bottom)
+                .attr('width', xScale.bandwidth())
+                .attr('height', 0)
+                .attr('fill', d => getDecColor(d.key))
+                .attr('rx', 3)
+                .transition()
+                .duration(200)
+                .attr('y', d => yScale(d.value))
+                .attr('height', d => barHeight - margin.bottom - yScale(d.value));
+            
+            // Add value labels
+            barSvg.selectAll('.bar-label')
+                .data(decData)
+                .enter()
+                .append('text')
+                .attr('class', 'bar-label')
+                .attr('x', d => xScale(d.key) + xScale.bandwidth() / 2)
+                .attr('y', d => yScale(d.value) - 5)
+                .attr('text-anchor', 'middle')
+                .attr('opacity', 0)
+                .text(d => d.value.toFixed(3))
+                .transition()
+                .delay(200)
+                .attr('opacity', 1);
+            
+            const total = decData.reduce((s, d) => s + d.value, 0);
+            d3.select('#bar-info').text(`Point ${point.id} - Total: ${total.toFixed(3)}`);
+        }
+        
+        function drawParallelCoordinates() {
+            pcSvg.selectAll('*').remove();
+            
+            if (pcColumns.length === 0) return;
+            
+            // Create y scales for each dimension
+            const yScales = {};
+            pcColumns.forEach(dim => {
+                yScales[dim] = d3.scaleLinear()
+                    .domain(d3.extent(portfolioData, d => d[dim]))
+                    .range([pcHeight - pcMargin.bottom, pcMargin.top]);
+            });
+            
+            // Create x scale for dimensions
+            const xScale = d3.scalePoint()
+                .domain(pcColumns)
+                .range([pcMargin.left, pcWidth - pcMargin.right]);
+            
+            // Color scale
+            colorScale.domain([0, portfolioData.length]);
+            
+            // Draw lines
+            const line = d3.line();
+            
+            pcSvg.selectAll('.pc-line')
+                .data(portfolioData)
+                .enter()
+                .append('path')
+                .attr('class', 'pc-line')
+                .attr('data-id', d => d.id)
+                .attr('d', d => line(pcColumns.map(dim => [xScale(dim), yScales[dim](d[dim])])))
+                .attr('stroke', (d, i) => colorScale(i))
+                .on('mouseover', function(event, d) {
+                    highlightParallelLine(d.id);
+                    highlightScatterPoint(d.id);
+                    highlightSPLOMPoints(d.id);
+                    updateBarChartDetail(d);
+                    drawRadarChart(d);
+                    
+                    let tooltipHtml = `<strong>Point ${d.id}</strong><br>`;
+                    pcColumns.forEach(col => {
+                        tooltipHtml += `${col}: ${d[col].toFixed(4)}<br>`;
+                    });
+                    
+                    tooltip.classed('visible', true)
+                        .html(tooltipHtml)
+                        .style('left', (event.pageX + 12) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                    
+                    d3.select('#pc-info').text(`Point ${d.id}`);
+                })
+                .on('mousemove', function(event) {
+                    tooltip
+                        .style('left', (event.pageX + 12) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', function() {
+                    resetParallelHighlight();
+                    resetScatterHighlight();
+                    resetSPLOMHighlight();
+                    drawStackedBarChart();
+                    drawRadarChart();
+                    tooltip.classed('visible', false);
+                    d3.select('#pc-info').text('Hover over a line to highlight');
+                    d3.select('#bar-info').text('Hover over a scatter point to see breakdown');
+                });
+            
+            // Draw axes
+            pcColumns.forEach(dim => {
+                pcSvg.append('g')
+                    .attr('class', 'axis')
+                    .attr('transform', `translate(${xScale(dim)}, 0)`)
+                    .call(d3.axisLeft(yScales[dim]).ticks(5));
+                
+                // Add dimension label
+                pcSvg.append('text')
+                    .attr('class', 'pc-axis-label')
+                    .attr('x', xScale(dim))
+                    .attr('y', pcMargin.top - 10)
+                    .text(dim);
+            });
+        }
+        
+        function highlightParallelLine(id) {
+            pcSvg.selectAll('.pc-line')
+                .classed('highlighted', false)
+                .attr('opacity', 0.15);
+            
+            pcSvg.select(`.pc-line[data-id="${id}"]`)
+                .classed('highlighted', true)
+                .attr('opacity', 1)
+                .raise();
+        }
+        
+        function resetParallelHighlight() {
+            pcSvg.selectAll('.pc-line')
+                .classed('highlighted', false)
+                .attr('opacity', 0.4);
+        }
+        
+        function highlightScatterPoint(id) {
+            scatterSvg.selectAll('.scatter-point')
+                .attr('opacity', 0.3)
+                .attr('r', 6);
+            
+            scatterSvg.selectAll('.scatter-point')
+                .filter(d => d.id === id)
+                .attr('opacity', 1)
+                .attr('r', 10)
+                .attr('stroke', '#333')
+                .attr('stroke-width', 2)
+                .raise();
+        }
+        
+        function resetScatterHighlight() {
+            scatterSvg.selectAll('.scatter-point')
+                .attr('opacity', 0.7)
+                .attr('r', 6)
+                .attr('stroke', 'none');
+        }
+        
+        function drawSPLOM() {
+            splomSvg.selectAll('*').remove();
+            
+            if (objColumns.length < 2) return;
+            
+            const n = objColumns.length;
+            const labelSpace = 40;
+            const cellSize = (splomSize - labelSpace) / n;
+            const cellPadding = 10;
+            
+            // Create scales for each dimension
+            const scales = {};
+            objColumns.forEach(col => {
+                scales[col] = d3.scaleLinear()
+                    .domain(d3.extent(portfolioData, d => d[col]))
+                    .range([cellPadding, cellSize - cellPadding]);
+            });
+            
+            // Create cells - only lower triangle (j > i)
+            const cell = splomSvg.selectAll('.splom-cell-g')
+                .data(d3.cross(d3.range(n), d3.range(n)).filter(([i, j]) => j > i))
+                .enter()
+                .append('g')
+                .attr('class', 'splom-cell-g')
+                .attr('transform', ([i, j]) => 
+                    `translate(${labelSpace + i * cellSize}, ${(j - 1) * cellSize})`);
+            
+            // Add cell backgrounds
+            cell.append('rect')
+                .attr('class', 'splom-cell')
+                .attr('width', cellSize)
+                .attr('height', cellSize);
+            
+            // Add points to each cell with hover
+            cell.each(function([i, j]) {
+                const xCol = objColumns[i];
+                const yCol = objColumns[j];
+                
+                d3.select(this).selectAll('.splom-point')
+                    .data(portfolioData)
+                    .enter()
+                    .append('circle')
+                    .attr('class', 'splom-point')
+                    .attr('data-id', d => d.id)
+                    .attr('cx', d => scales[xCol](d[xCol]))
+                    .attr('cy', d => cellSize - scales[yCol](d[yCol]))
+                    .attr('r', 2)
+                    .on('mouseover', function(event, d) {
+                        highlightSPLOMPoints(d.id);
+                        highlightScatterPoint(d.id);
+                        highlightParallelLine(d.id);
+                        updateBarChartDetail(d);
+                        drawRadarChart(d);
+                        
+                        tooltip.classed('visible', true)
+                            .html(`<strong>Point ${d.id}</strong><br>${xCol}: ${d[xCol].toFixed(4)}<br>${yCol}: ${d[yCol].toFixed(4)}`)
+                            .style('left', (event.pageX + 12) + 'px')
+                            .style('top', (event.pageY - 10) + 'px');
+                    })
+                    .on('mousemove', function(event) {
+                        tooltip
+                            .style('left', (event.pageX + 12) + 'px')
+                            .style('top', (event.pageY - 10) + 'px');
+                    })
+                    .on('mouseout', function() {
+                        resetSPLOMHighlight();
+                        resetScatterHighlight();
+                        resetParallelHighlight();
+                        drawStackedBarChart();
+                        drawRadarChart();
+                        tooltip.classed('visible', false);
+                    });
+            });
+            
+            // Add X axis labels (bottom)
+            objColumns.slice(0, -1).forEach((col, i) => {
+                splomSvg.append('text')
+                    .attr('class', 'splom-label')
+                    .attr('x', labelSpace + i * cellSize + cellSize / 2)
+                    .attr('y', (n - 1) * cellSize + 15)
+                    .text(col);
+            });
+            
+            // Add Y axis labels (left side)
+            objColumns.slice(1).forEach((col, i) => {
+                splomSvg.append('text')
+                    .attr('class', 'splom-label')
+                    .attr('x', labelSpace - 5)
+                    .attr('y', i * cellSize + cellSize / 2)
+                    .attr('text-anchor', 'end')
+                    .attr('dy', '0.35em')
+                    .text(col);
+            });
+            
+            d3.select('#splom-title').text(`Objectives SPLOM (${objColumns.join(', ')})`);
+        }
+        
+        function highlightSPLOMPoints(id) {
+            splomSvg.selectAll('.splom-point')
+                .classed('highlighted', false)
+                .attr('opacity', 0.5)
+                .attr('r', 2.5);
+            
+            splomSvg.selectAll(`.splom-point[data-id="${id}"]`)
+                .classed('highlighted', true)
+                .attr('opacity', 1)
+                .attr('r', 5)
+                .raise();
+        }
+        
+        function resetSPLOMHighlight() {
+            splomSvg.selectAll('.splom-point')
+                .classed('highlighted', false)
+                .attr('opacity', 0.5)
+                .attr('r', 2.5);
+        }
+        
+        function drawRadarChart(dataPoint = null) {
+            radarSvg.selectAll('*').remove();
+            
+            if (objColumns.length < 3) {
+                radarSvg.append('text')
+                    .attr('x', radarSize / 2)
+                    .attr('y', radarSize / 2)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#999')
+                    .text('Need at least 3 objectives for radar');
+                return;
+            }
+            
+            const centerX = radarSize / 2;
+            const centerY = radarSize / 2;
+            const radius = Math.min(radarSize - 80, radarSize - 80) / 2;
+            const levels = 5;
+            const angleSlice = (Math.PI * 2) / objColumns.length;
+            
+            // Create scales for each axis (normalize to 0-1)
+            const scales = {};
+            objColumns.forEach(col => {
+                const extent = d3.extent(portfolioData, d => d[col]);
+                scales[col] = d3.scaleLinear()
+                    .domain(extent)
+                    .range([0, 1]);
+            });
+            
+            const radarG = radarSvg.append('g')
+                .attr('transform', `translate(${centerX}, ${centerY})`);
+            
+            // Draw grid circles
+            for (let level = 1; level <= levels; level++) {
+                const r = (radius / levels) * level;
+                radarG.append('circle')
+                    .attr('class', 'radar-grid')
+                    .attr('r', r);
+            }
+            
+            // Draw axis lines and labels
+            objColumns.forEach((col, i) => {
+                const angle = angleSlice * i - Math.PI / 2;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                
+                // Axis line
+                radarG.append('line')
+                    .attr('class', 'radar-axis')
+                    .attr('x1', 0)
+                    .attr('y1', 0)
+                    .attr('x2', x)
+                    .attr('y2', y);
+                
+                // Label
+                const labelX = Math.cos(angle) * (radius + 20);
+                const labelY = Math.sin(angle) * (radius + 20);
+                radarG.append('text')
+                    .attr('class', 'radar-label')
+                    .attr('x', labelX)
+                    .attr('y', labelY)
+                    .attr('text-anchor', 'middle')
+                    .attr('dy', '0.35em')
+                    .text(col);
+            });
+            
+            // Draw data
+            if (dataPoint) {
+                // Single point radar - lines only
+                const points = objColumns.map((col, i) => {
+                    const angle = angleSlice * i - Math.PI / 2;
+                    const value = scales[col](dataPoint[col]);
+                    return [
+                        Math.cos(angle) * radius * value,
+                        Math.sin(angle) * radius * value
+                    ];
+                });
+                
+                // Line (closed path, no fill)
+                radarG.append('polygon')
+                    .attr('class', 'radar-area')
+                    .attr('data-id', dataPoint.id)
+                    .attr('points', points.map(p => p.join(',')).join(' '))
+                    .attr('fill', 'none')
+                    .attr('stroke', '#5b8def')
+                    .attr('stroke-width', 2.5);
+                
+                // Points
+                points.forEach((p, i) => {
+                    radarG.append('circle')
+                        .attr('class', 'radar-point')
+                        .attr('cx', p[0])
+                        .attr('cy', p[1])
+                        .attr('r', 4)
+                        .attr('fill', '#5b8def');
+                });
+                
+                d3.select('#radar-info').text(`Point ${dataPoint.id}`);
+            } else {
+                // Draw all points as faded lines with hover
+                portfolioData.forEach((d, idx) => {
+                    const points = objColumns.map((col, i) => {
+                        const angle = angleSlice * i - Math.PI / 2;
+                        const value = scales[col](d[col]);
+                        return [
+                            Math.cos(angle) * radius * value,
+                            Math.sin(angle) * radius * value
+                        ];
+                    });
+                    
+                    radarG.append('polygon')
+                        .attr('class', 'radar-line')
+                        .attr('data-id', d.id)
+                        .attr('points', points.map(p => p.join(',')).join(' '))
+                        .attr('fill', 'none')
+                        .attr('stroke', colorScale(idx))
+                        .attr('stroke-width', 1.5)
+                        .attr('stroke-opacity', 0.3)
+                        .style('cursor', 'pointer')
+                        .on('mouseover', function(event) {
+                            // Highlight this line
+                            radarG.selectAll('.radar-line')
+                                .attr('stroke-opacity', 0.1)
+                                .attr('stroke-width', 1);
+                            d3.select(this)
+                                .attr('stroke-opacity', 1)
+                                .attr('stroke-width', 2.5)
+                                .raise();
+                            
+                            highlightScatterPoint(d.id);
+                            highlightParallelLine(d.id);
+                            highlightSPLOMPoints(d.id);
+                            updateBarChartDetail(d);
+                            
+                            let tooltipHtml = `<strong>Point ${d.id}</strong><br>`;
+                            objColumns.forEach(col => {
+                                tooltipHtml += `${col}: ${d[col].toFixed(4)}<br>`;
+                            });
+                            
+                            tooltip.classed('visible', true)
+                                .html(tooltipHtml)
+                                .style('left', (event.pageX + 12) + 'px')
+                                .style('top', (event.pageY - 10) + 'px');
+                            
+                            d3.select('#radar-info').text(`Point ${d.id}`);
+                        })
+                        .on('mousemove', function(event) {
+                            tooltip
+                                .style('left', (event.pageX + 12) + 'px')
+                                .style('top', (event.pageY - 10) + 'px');
+                        })
+                        .on('mouseout', function() {
+                            // Reset all lines
+                            radarG.selectAll('.radar-line')
+                                .attr('stroke-opacity', 0.3)
+                                .attr('stroke-width', 1.5);
+                            
+                            resetScatterHighlight();
+                            resetParallelHighlight();
+                            resetSPLOMHighlight();
+                            drawStackedBarChart();
+                            tooltip.classed('visible', false);
+                            d3.select('#radar-info').text('Hover over a line to highlight');
+                        });
+                });
+                
+                d3.select('#radar-info').text('Hover over a line to highlight');
+            }
+            
+            d3.select('#radar-title').text(`Objectives Radar (${objColumns.join(', ')})`);
+        }
+    </script>
+</body>
+</html>
